@@ -36,6 +36,7 @@
 .addSubjectContainer form{
     display: flex;
     flex-direction: column;
+    padding: 1em;
 }
 .addSubjectContainer form span{
     text-align: center;
@@ -46,6 +47,20 @@ input{
     width: 80%;
     font-size: 1.5em;
     margin: 1em auto;
+    border: solid black;
+    border-radius: 0.5em;
+}
+.addSubjectContainer form button{
+    all:unset;
+    font-size: 1.2em;
+    font-weight: 900;
+    border: solid;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    border-radius: 1em;
+    text-align: center;
+    width: auto;
+    margin: 0 auto;
+    padding: 1em;
 }
 .subjects ul li{
     list-style-type: none;

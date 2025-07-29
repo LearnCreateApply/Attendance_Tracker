@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { openDB } from 'idb';
 import './App.css';
 
-// IndexedDB setup
 const DB_NAME = 'subjects-db';
 const STORE_NAME = 'subjects';
 
@@ -22,11 +21,6 @@ async function getAllSubjects() {
   return await db.getAll(STORE_NAME);
 }
 
-async function saveSubject(subject) {
-  const db = await getDB();
-  await db.put(STORE_NAME, subject);
-}
-
 async function saveAllSubjects(subjects) {
   const db = await getDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -38,21 +32,27 @@ async function saveAllSubjects(subjects) {
   await tx.done;
 }
 
+async function deleteSubjectFromDB(subjectName) {
+  const db = await getDB();
+  await db.delete(STORE_NAME, subjectName);
+}
+
 function App() {
   const {
     register,
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors }
   } = useForm();
 
   const totalLectures = watch('totalLectures');
   const [addSubject, setAddSubject] = useState(false);
   const [subjectDetails, setSubjectDetails] = useState([]);
+  const [editIndex, setEditIndex] = useState(null);
 
   useEffect(() => {
-    // Load data from IDB on mount
     (async () => {
       const subjects = await getAllSubjects();
       setSubjectDetails(subjects);
@@ -67,11 +67,29 @@ function App() {
       totalLectures: parseInt(data.totalLectures),
       percentage: percentage.toFixed(2)
     };
-    const newSubjects = [...subjectDetails.filter(s => s.subjectName !== data.subjectName), updatedData];
+
+    let newSubjects;
+    if (editIndex !== null) {
+      newSubjects = [...subjectDetails];
+      newSubjects[editIndex] = updatedData;
+      setEditIndex(null);
+    } else {
+      newSubjects = [...subjectDetails.filter(s => s.subjectName !== data.subjectName), updatedData];
+    }
+
     setSubjectDetails(newSubjects);
     await saveAllSubjects(newSubjects);
     setAddSubject(false);
     reset();
+  };
+
+  const startEditing = (index) => {
+    const subject = subjectDetails[index];
+    setValue("subjectName", subject.subjectName);
+    setValue("lectureAttended", subject.lectureAttended);
+    setValue("totalLectures", subject.totalLectures);
+    setEditIndex(index);
+    setAddSubject(true);
   };
 
   const incrementLecture = async (index, attended) => {
@@ -91,12 +109,28 @@ function App() {
     await saveAllSubjects(updatedSubjects);
   };
 
+  const handleDelete = async () => {
+    if (editIndex !== null) {
+      const subjectName = subjectDetails[editIndex].subjectName;
+      const newSubjects = subjectDetails.filter((_, i) => i !== editIndex);
+      setSubjectDetails(newSubjects);
+      await deleteSubjectFromDB(subjectName);
+      setEditIndex(null);
+      reset();
+      setAddSubject(false);
+    }
+  };
+
   return (
     <div>
       <div className='herotext'>Attendance Tracker</div>
 
       <div className="container">
-        <button onClick={() => setAddSubject(!addSubject)}>
+        <button onClick={() => {
+          setAddSubject(!addSubject);
+          setEditIndex(null);
+          reset();
+        }}>
           {addSubject ? 'Cancel' : 'Add Subject'}
         </button>
       </div>
@@ -107,6 +141,7 @@ function App() {
             <input
               type="text"
               placeholder='Subject Name'
+              disabled={editIndex !== null}
               {...register("subjectName", {
                 required: "Subject name is required",
                 minLength: { value: 2, message: "Minimum 2 characters" },
@@ -137,8 +172,22 @@ function App() {
               })}
             />
             {errors.totalLectures && <span className="error">{errors.totalLectures.message}</span>}
+              <div style={{
+                display:'flex',
+                justifyContent:'center'
+              }}>
 
-            <input type="submit" value="Save Subject" />
+            <button type="submit">{editIndex !== null ? "Update Subject" : "Save Subject"}</button>
+
+            {editIndex !== null && (
+              <button
+              type="button"
+              onClick={handleDelete}
+              >
+                Delete Subject
+              </button>
+            )}
+            </div>
           </form>
         </div>
       ) : (
@@ -153,10 +202,9 @@ function App() {
                     <span>{subject.percentage}%</span>
                   </div>
                   <div className='tworow'>
-                    <button onClick={() => incrementLecture(index, true)}>+</button>
-                    <span>Attended</span>
-                    <button onClick={() => incrementLecture(index, false)}>-</button>
-                    <span>Skipped</span>
+                    <button style={{ margin: '0 1em' }} onClick={() => incrementLecture(index, true)}>⊕ Attended</button>
+                    <button style={{ margin: '0 1em' }} onClick={() => incrementLecture(index, false)}>⊖ Skipped</button>
+                    <button style={{ margin: '0 1em' }} onClick={() => startEditing(index)}>✎ Edit</button>
                   </div>
                 </li>
               </ul>
